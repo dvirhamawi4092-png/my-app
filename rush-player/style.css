@@ -134,3 +134,28 @@ input[type=range] { direction: ltr; }
   .t-group { width: 100%; justify-content: space-between; }
   .small input { width: 90px; }
 }
+
+.tbtn {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+  background: var(--panel2); border: 1px solid var(--line); color: var(--text); font-size: 14px; white-space: nowrap;
+}
+.tbtn[hidden] { display: none; }
+.tbtn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tbtn.attention { border-color: var(--accent2); box-shadow: 0 0 0 2px rgba(242,177,52,.35); }
+.marks-info { font-size: 13px; color: var(--muted); }
+.score-wrap.marking .pages { cursor: crosshair; }
+.mark-layer { position: absolute; top: 0; left: 0; width: 0; height: 0; }
+.mark-tick {
+  position: absolute; transform: translate(0, -50%); padding: 1px 5px; border-radius: 4px;
+  background: rgba(224,68,58,.85); color: #fff; font: 11px/1.4 system-ui, sans-serif; white-space: nowrap;
+  opacity: .55; pointer-events: none;
+}
+.score-wrap.marking .mark-tick { opacity: 1; pointer-events: auto; cursor: pointer; }
+.score-wrap.marking .mark-tick:hover { background: #000; }
+.score-wrap.marking .mark-tick:hover::after { content: " ✕"; }
+.band {
+  position: absolute; background: rgba(242,177,52,.16); border-top: 2px solid rgba(224,68,58,.7);
+  pointer-events: none; border-radius: 2px;
+}
+.band[hidden] { display: none; }
+.sweep { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--accent); border-radius: 2px; }
