@@ -459,5 +459,50 @@
     $("sound-btn").textContent = soundOn ? "🔊" : "🔇";
   });
 
+  // ---------- Add to home screen (PWA) ----------
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+
+  const installBtn = $("install-btn");
+  const isStandalone = () =>
+    window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let deferredPrompt = null;
+
+  // Show the button whenever we're in a browser tab (not already opened from the home screen)
+  installBtn.hidden = isStandalone();
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.hidden = false;
+  });
+  window.addEventListener("appinstalled", () => {
+    deferredPrompt = null;
+    installBtn.hidden = true;
+  });
+
+  function showInstallHelp() {
+    const steps = isIOS
+      ? ["לוחצים על כפתור השיתוף <b>⬆️</b> בתחתית ספארי", "בוחרים <b>\"הוסף למסך הבית\"</b>", "לוחצים <b>\"הוסף\"</b>"]
+      : ["לוחצים על התפריט <b>⋮</b> בפינה של הדפדפן", "בוחרים <b>\"הוספה למסך הבית\"</b> או <b>\"התקנת אפליקציה\"</b>", "מאשרים <b>\"הוספה\"</b> / <b>\"התקנה\"</b>"];
+    $("install-steps").innerHTML = steps.map((s) => `<li>${s}</li>`).join("");
+    $("install-help").hidden = false;
+  }
+
+  installBtn.addEventListener("click", async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      if (outcome === "accepted") installBtn.hidden = true;
+    } else {
+      showInstallHelp();
+    }
+  });
+  $("install-close").addEventListener("click", () => { $("install-help").hidden = true; });
+
   refreshMenu();
 })();
