@@ -82,7 +82,7 @@
       badges.className = 'badges';
       const add = (t) => { const b = document.createElement('span'); b.className = 'badge'; b.textContent = t; badges.append(b); };
       if (s.audio) add('🎵');
-      if (s.tab || s.tex) add('TAB');
+      if (s.tab || s.demo) add('TAB');
       if (s.pdf) add('PDF');
       if (s.images.length) add('🖼');
       li.append(name, badges);
@@ -93,7 +93,8 @@
 
   // ---------- alphaTab ----------
   let api = null, tabReady = false, playerReady = false, score = null;
-  let synthTime = 0, synthEnd = 0;
+  let synthTime = 0, synthEnd = 0, wantedTrack = 0;
+  const isDrums = (t) => t.staves.some((st) => st.isPercussion) || t.playbackInfo.primaryChannel === 9;
 
   function ensureApi() {
     if (api) return api;
@@ -116,11 +117,11 @@
       el.trackSel.innerHTML = '';
       sc.tracks.forEach((t, i) => {
         const o = document.createElement('option');
-        o.value = i; o.textContent = t.name || ('כלי ' + (i + 1));
+        o.value = i; o.textContent = (isDrums(t) ? '🥁 ' : '') + (t.name || ('כלי ' + (i + 1)));
         el.trackSel.append(o);
       });
+      el.trackSel.value = wantedTrack;
       el.trackWrap.hidden = sc.tracks.length < 2;
-      if (current && !current.audio && sc.title && current.tex) el.songTitle.textContent = sc.title;
     });
     api.renderFinished.on(() => { el.loading.hidden = true; tabReady = true; });
     api.playerReady.on(() => { playerReady = true; applyTabAudioSettings(); });
@@ -196,7 +197,7 @@
     el.songTitle.textContent = s.name;
     el.empty.hidden = true; el.view.hidden = false;
 
-    const hasTab = !!(s.tab || s.tex);
+    const hasTab = !!(s.tab || s.demo);
     const hasPages = !!(s.pdf || s.images.length);
 
     // audio
@@ -221,8 +222,13 @@
     if (hasTab) {
       el.loading.hidden = false;
       const a = ensureApi();
-      if (s.tex) a.tex(s.tex);
-      else s.tab.arrayBuffer().then((buf) => a.load(new Uint8Array(buf), [0]) || fail());
+      const p = s.demo ? Promise.resolve(buildDemoScore(a.settings))
+        : s.tab.arrayBuffer().then((buf) => alphaTab.importer.ScoreLoader.loadScoreFromBytes(new Uint8Array(buf), a.settings));
+      p.then((sc) => {
+        if (current !== s) return;
+        wantedTrack = Math.max(0, sc.tracks.findIndex(isDrums)); // open the drum part by default
+        a.renderScore(sc, [wantedTrack]);
+      }).catch((e) => { console.error(e); fail(); });
     } else if (hasPages) {
       showPages(s);
     } else {
@@ -235,8 +241,8 @@
   function updateMode() {
     const s = current;
     if (!s) { mode = 'none'; }
-    else if (s.audio) mode = (s.tab || s.tex) ? el.modeSel.value : 'audio';
-    else mode = (s.tab || s.tex) ? 'synth' : 'none';
+    else if (s.audio) mode = (s.tab || s.demo) ? el.modeSel.value : 'audio';
+    else mode = (s.tab || s.demo) ? 'synth' : 'none';
     el.transport.hidden = mode === 'none';
     el.metroWrap.hidden = mode !== 'synth';
     applyTabAudioSettings();
@@ -269,7 +275,7 @@
   function togglePlay() {
     if (mode === 'audio') {
       if (el.audio.paused) {
-        if (api && (current.tab || current.tex) && playerReady) api.play(); // unlock audio context during the click
+        if (api && (current.tab || current.demo) && playerReady) api.play(); // unlock audio context during the click
         el.audio.play().catch((e) => console.warn(e));
       } else el.audio.pause();
     } else if (mode === 'synth') {
@@ -320,7 +326,7 @@
       const t = el.audio.currentTime, d = el.audio.duration || 0;
       if (loopA != null && loopB != null && t >= loopB) el.audio.currentTime = loopA;
       updateTimeUI(t, d);
-      if (current.tab || current.tex) syncTabToAudio(now);
+      if (current.tab || current.demo) syncTabToAudio(now);
       else autoScrollPages(t, d);
     }
     requestAnimationFrame(tick);
@@ -352,7 +358,7 @@
   el.trackSel.addEventListener('change', () => { if (api && score) api.renderTracks([score.tracks[+el.trackSel.value]]); });
   el.zoom.addEventListener('change', () => {
     applyZoom();
-    if (api && current && (current.tab || current.tex)) { api.settings.display.scale = parseFloat(el.zoom.value); api.updateSettings(); api.render(); }
+    if (api && current && (current.tab || current.demo)) { api.settings.display.scale = parseFloat(el.zoom.value); api.updateSettings(); api.render(); }
   });
   el.aBtn.onclick = () => { loopA = currentPos(); if (loopB != null && loopB <= loopA) loopB = null; el.aBtn.classList.add('on'); el.bBtn.classList.toggle('on', loopB != null); };
   el.bBtn.onclick = () => { const p = currentPos(); if (loopA != null && p > loopA) { loopB = p; el.bBtn.classList.add('on'); } };
@@ -389,19 +395,44 @@
     if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
   });
 
-  // Original demo riff (written for this app) so the player can be tried without files.
-  const DEMO_TEX = `\\title "Demo Riff" \\tempo 112
-.
-\\track "Guitar" \\instrument 30
-0.6.8 0.6.8 2.5.8 4.5.8 0.6.8 0.6.8 5.5.8 4.5.8 |
-2.4.4 4.4.4 2.5.4 0.6.4 |
-0.6.8 0.6.8 2.5.8 4.5.8 0.6.8 0.6.8 7.5.8 5.5.8 |
-(4.4 2.5).2 (0.5 2.4).2 |
-\\track "Bass" \\instrument 33 \\tuning E1 A1 D2 G2
-0.4.4 0.4.4 2.3.4 0.4.4 | 2.2.4 4.2.4 2.3.4 0.4.4 | 0.4.4 0.4.4 2.3.4 0.4.4 | 2.3.2 0.3.2 |`;
+  // Original demo drum groove (written for this app) so the player can be tried without files.
+  // Each bar: 8 eighth-note steps, each step a list of General MIDI drum numbers.
+  const K = 36, SN = 38, HH = 42, OH = 46, CR = 49, T1 = 48, T2 = 45, FT = 43;
+  const DEMO_BARS = [
+    [[K, HH, CR], [HH], [SN, HH], [HH], [K, HH], [K, HH], [SN, HH], [HH]],
+    [[K, HH], [HH], [SN, HH], [HH], [K, HH], [K, OH], [SN, HH], [HH]],
+    [[K, HH], [HH], [SN, HH], [HH], [K, HH], [K, HH], [SN, HH], [HH]],
+    [[K, HH], [HH], [SN, HH], [K], [SN], [T1], [T2], [FT]],
+  ];
+  function buildDemoScore(settings) {
+    const m = alphaTab.model;
+    const score = new m.Score();
+    score.title = 'Demo Groove'; score.tempo = 104; score.tempoLabel = '';
+    const track = new m.Track();
+    track.name = 'Drums'; track.ensureStaveCount(1);
+    track.playbackInfo.primaryChannel = 9; track.playbackInfo.secondaryChannel = 9; track.playbackInfo.program = 0;
+    score.addTrack(track);
+    const staff = track.staves[0];
+    staff.isPercussion = true; staff.showTablature = false; staff.showStandardNotation = true;
+    for (let r = 0; r < 2; r++) DEMO_BARS.forEach((steps, bi) => {
+      const mb = new m.MasterBar();
+      mb.timeSignatureNumerator = 4; mb.timeSignatureDenominator = 4;
+      if (r === 0 && bi === 0) mb.tempoAutomation = m.Automation.buildTempoAutomation(false, 0, 104, 2);
+      score.addMasterBar(mb);
+      const bar = new m.Bar(); bar.clef = m.Clef.Neutral; staff.addBar(bar);
+      const voice = new m.Voice(); bar.addVoice(voice);
+      for (const step of steps) {
+        const beat = new m.Beat(); beat.duration = m.Duration.Eighth;
+        for (const midi of step) { const n = new m.Note(); n.percussionArticulation = midi; beat.addNote(n); }
+        voice.addBeat(beat);
+      }
+    });
+    score.finish(settings);
+    return score;
+  }
   el.demoBtn.onclick = () => {
     let s = songs.get('__demo');
-    if (!s) { s = { key: '__demo', name: 'דוגמה (Demo Riff)', audio: null, tab: null, pdf: null, images: [], tex: DEMO_TEX }; songs.set('__demo', s); }
+    if (!s) { s = { key: '__demo', name: 'דוגמה – תופים (Demo Groove)', audio: null, tab: null, pdf: null, images: [], demo: true }; songs.set('__demo', s); }
     openSong(s); el.sidebar.classList.remove('open');
   };
 
