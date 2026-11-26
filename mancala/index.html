@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#2b1a10">
   <title>מנקלה</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="מנקלה">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -52,6 +59,7 @@
       </div>
 
       <button id="start-btn" class="primary">התחל משחק</button>
+      <button id="install-btn" class="secondary install-btn" hidden>📲 הוסף למסך הבית</button>
 
       <details class="rules">
         <summary>איך משחקים?</summary>
@@ -71,6 +79,7 @@
     <header class="topbar">
       <button id="menu-btn" class="icon-btn" aria-label="תפריט">☰</button>
       <div id="status" class="status" aria-live="polite"></div>
+      <button id="undo-btn" class="icon-btn" aria-label="ביטול מהלך" title="ביטול מהלך" disabled>↶</button>
       <button id="restart-btn" class="icon-btn" aria-label="משחק חדש" title="משחק חדש">↻</button>
       <button id="sound-btn" class="icon-btn" aria-label="צליל">🔊</button>
     </header>
@@ -97,6 +106,18 @@
       <div class="overlay-actions">
         <button id="again-btn" class="primary">שחק שוב</button>
         <button id="to-menu-btn" class="secondary">לתפריט</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add-to-home-screen instructions -->
+  <div id="install-help" class="overlay" hidden>
+    <div class="overlay-card">
+      <div class="result-emoji">📲</div>
+      <h2>הוספה למסך הבית</h2>
+      <ol id="install-steps" class="install-steps"></ol>
+      <div class="overlay-actions">
+        <button id="install-close" class="primary">הבנתי</button>
       </div>
     </div>
   </div>

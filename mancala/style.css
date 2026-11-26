@@ -153,6 +153,7 @@ button {
   background: rgba(255,255,255,.08);
   font-size: 1.2rem;
 }
+.icon-btn:disabled { opacity: .35; cursor: default; }
 .status {
   flex: 1;
   text-align: center;
@@ -371,3 +372,18 @@ button {
 .overlay-card p { margin: 0 0 18px; font-size: 1.2rem; opacity: .85; }
 .overlay-actions { display: flex; flex-direction: column; gap: 10px; }
 .overlay-actions .primary { margin-top: 0; }
+
+/* ---------- Install (add to home screen) ---------- */
+.install-btn {
+  width: 100%;
+  margin-top: 10px;
+  font-size: 1rem;
+}
+.install-btn[hidden] { display: none; }
+.install-steps {
+  text-align: start;
+  line-height: 1.7;
+  margin: 10px 0 18px;
+  padding-inline-start: 22px;
+  font-size: 1.05rem;
+}
