@@ -33,6 +33,7 @@
     <main class="main">
       <div id="empty" class="empty">
         <p>הוסיפו שירים מהצד: קובץ שמע (mp3 וכו׳) ו/או קובץ תווים.</p>
+        <p><b>יש לכם PDF של תווים?</b> פתחו את השיר, הפעילו את ההקלטה, לחצו "📍 סימון מיקומים" ובכל פעם ששורה חדשה מתחילה – לחצו עליה בדף. מאותו רגע הסמן האדום ירוץ על הדף יחד עם השיר (הסימונים נשמרים).</p>
         <ul>
           <li><b>Guitar Pro / MusicXML</b>: תווים וטאבים שמתנגנים עם סמן שזז לפי הנגינה</li>
           <li><b>PDF / תמונה</b>: דף התווים נגלל לבד יחד עם השיר</li>
@@ -59,6 +60,16 @@
           <label id="metroWrap" class="field" hidden>
             <input id="metro" type="checkbox"> מטרונום
           </label>
+          <span id="marksWrap" class="field" hidden>
+            <button id="markBtn" class="tbtn" title="סמנו בזמן הנגינה איפה בדף נמצאת המוזיקה">📍 סימון מיקומים</button>
+            <span id="marksInfo" class="marks-info"></span>
+            <button id="markUndo" class="tbtn" title="בטל סימון אחרון">↶</button>
+            <button id="markClear" class="tbtn" title="מחק את כל הסימונים">🗑</button>
+          </span>
+          <label id="attachAudioWrap" class="tbtn" hidden>🎵 צרף הקלטה
+            <input id="attachAudio" type="file" hidden accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac,.aac"></label>
+          <label id="attachNotesWrap" class="tbtn" hidden>📄 צרף תווים
+            <input id="attachNotes" type="file" hidden accept=".pdf,image/*,.gp,.gp3,.gp4,.gp5,.gpx,.musicxml,.xml,.mxl"></label>
           <label id="zoomWrap" class="field">גודל
             <input id="zoom" type="range" min="0.5" max="1.6" step="0.1" value="1">
           </label>
@@ -67,6 +78,8 @@
         <div id="scoreWrap" class="score-wrap">
           <div id="alphaTab" class="alpha"></div>
           <div id="pages" class="pages"></div>
+          <div id="markLayer" class="mark-layer"></div>
+          <div id="band" class="band" hidden><div id="sweep" class="sweep"></div></div>
           <div id="loading" class="loading" hidden>טוען…</div>
         </div>
       </section>

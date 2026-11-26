@@ -16,6 +16,9 @@
     transport: $('transport'), playBtn: $('playBtn'), seek: $('seek'), curTime: $('curTime'), durTime: $('durTime'),
     speed: $('speed'), speedVal: $('speedVal'), volume: $('volume'),
     aBtn: $('aBtn'), bBtn: $('bBtn'), abClear: $('abClear'),
+    marksWrap: $('marksWrap'), markBtn: $('markBtn'), marksInfo: $('marksInfo'), markUndo: $('markUndo'), markClear: $('markClear'),
+    attachAudioWrap: $('attachAudioWrap'), attachAudio: $('attachAudio'), attachNotesWrap: $('attachNotesWrap'), attachNotes: $('attachNotes'),
+    markLayer: $('markLayer'), band: $('band'), sweep: $('sweep'),
     audio: $('audio'),
   };
 
@@ -167,6 +170,7 @@
           el.pages.append(c); applyZoom();
           await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
           if (p === 1) el.loading.hidden = true;
+          drawMarks();
         }
       } catch (e) { console.error(e); alert('לא הצלחתי לפתוח את ה-PDF'); }
       el.loading.hidden = true;
@@ -174,15 +178,117 @@
     for (const img of song.images) {
       const i = new Image();
       i.src = URL.createObjectURL(img); i.alt = img.name;
+      i.onload = drawMarks;
       el.pages.append(i);
     }
     applyZoom();
+    drawMarks();
   }
 
   function applyZoom() {
     const z = parseFloat(el.zoom.value);
     for (const c of el.pages.children) { c.style.width = `calc(${z} * min(100%, 1000px))`; c.style.maxWidth = 'none'; }
+    drawMarks();
   }
+
+  // ---------- position marks on PDF / image pages ----------
+  // A mark = { t: seconds in the recording, f: pageIndex + fraction down that page }.
+  // Played back as: the line that starts at mark i is highlighted from t_i until t_(i+1).
+  const marksKey = (s) => 'songplayer:marks:' + (s.pdf ? s.pdf.name + ':' + s.pdf.size : s.images.map((i) => i.name).join('|'));
+  let marking = false;
+
+  function loadMarks(s) {
+    if (s.marks) return;
+    try { s.marks = JSON.parse(localStorage.getItem(marksKey(s))) || []; } catch { s.marks = []; }
+  }
+  function saveMarks() {
+    if (!current) return;
+    current.marks.sort((a, b) => a.t - b.t);
+    try { localStorage.setItem(marksKey(current), JSON.stringify(current.marks)); } catch {}
+    drawMarks();
+  }
+  function fToY(f) { // -> {y, x, w, lineH} in scroll-content coordinates
+    const kids = el.pages.children;
+    if (!kids.length) return null;
+    const i = Math.min(kids.length - 1, Math.max(0, Math.floor(f)));
+    const c = kids[i];
+    return { y: c.offsetTop + (f - i) * c.offsetHeight, x: c.offsetLeft, w: c.offsetWidth, pageH: c.offsetHeight };
+  }
+  function drawMarks() {
+    el.markLayer.innerHTML = '';
+    const s = current;
+    const on = !!(s && s.marks && el.pages.children.length);
+    if (s && s.marks) {
+      el.marksInfo.textContent = s.marks.length ? s.marks.length + ' סימונים' : (marking ? 'לחצו על השורה שמתנגנת עכשיו' : '');
+      el.markUndo.hidden = el.markClear.hidden = !s.marks.length;
+    }
+    if (!on) return;
+    s.marks.forEach((m, idx) => {
+      const p = fToY(m.f); if (!p) return;
+      const d = document.createElement('div');
+      d.className = 'mark-tick'; d.textContent = fmt(m.t); d.title = 'מחק סימון';
+      d.style.left = (p.x + 2) + 'px'; d.style.top = p.y + 'px';
+      d.onclick = (e) => { e.stopPropagation(); if (marking) { s.marks.splice(idx, 1); saveMarks(); } };
+      el.markLayer.append(d);
+    });
+  }
+  function setMarking(on) {
+    marking = on;
+    el.markBtn.classList.toggle('on', on);
+    el.markBtn.textContent = on ? '✓ סיימתי לסמן' : '📍 סימון מיקומים';
+    el.scoreWrap.classList.toggle('marking', on);
+    drawMarks();
+  }
+  el.markBtn.onclick = () => setMarking(!marking);
+  el.markUndo.onclick = () => {
+    if (!current || !current.marks.length) return;
+    // remove the most recently added mark
+    let k = 0; current.marks.forEach((m, i) => { if ((m.added || 0) > (current.marks[k].added || 0)) k = i; });
+    current.marks.splice(k, 1); saveMarks();
+  };
+  el.markClear.onclick = () => { if (current && confirm('למחוק את כל הסימונים של השיר?')) { current.marks = []; saveMarks(); } };
+  el.pages.addEventListener('click', (e) => {
+    if (!marking || !current || !current.marks) return;
+    const kids = [...el.pages.children];
+    const i = kids.findIndex((c) => { const r = c.getBoundingClientRect(); return e.clientY >= r.top && e.clientY <= r.bottom; });
+    if (i < 0) return;
+    const r = kids[i].getBoundingClientRect();
+    const f = i + (e.clientY - r.top) / r.height;
+    // people click a moment after they hear the line start – compensate a little while playing
+    const t = Math.max(0, el.audio.currentTime - (el.audio.paused ? 0 : 0.25 * speed()));
+    current.marks = current.marks.filter((m) => Math.abs(m.t - t) > 0.4);
+    current.marks.push({ t: +t.toFixed(2), f: +f.toFixed(4), added: Date.now() });
+    saveMarks();
+  });
+
+  // where the music is on the page at time t (null = unknown)
+  function markPos(t, d) {
+    const ms = current && current.marks;
+    if (!ms || !ms.length || t < ms[0].t) return null;
+    let i = 0; while (i + 1 < ms.length && ms[i + 1].t <= t) i++;
+    const a = ms[i], b = ms[i + 1];
+    let end = b ? b.t : null;
+    if (!b) { // last marked line: assume a typical line length
+      const avg = ms.length > 1 ? (ms[ms.length - 1].t - ms[0].t) / (ms.length - 1) : 8;
+      end = Math.min(d || Infinity, a.t + avg);
+      if (t > end) return null;
+    }
+    const pa = fToY(a.f); if (!pa) return null;
+    let h = 0;
+    if (b) { const pb = fToY(b.f); if (pb && pb.y > pa.y && pb.y - pa.y < pa.pageH * 0.3) h = pb.y - pa.y; }
+    if (!h) { // guess one line height from the median gap between marks
+      const gaps = ms.map((m, k) => k && fToY(m.f).y - fToY(ms[k - 1].f).y).filter((g) => g > 0 && g < pa.pageH * 0.3).sort((x, y) => x - y);
+      h = gaps.length ? gaps[gaps.length >> 1] : pa.pageH * 0.08;
+    }
+    return { y: pa.y, h, x: pa.x, w: pa.w, p: Math.min(1, (t - a.t) / Math.max(0.1, end - a.t)) };
+  }
+
+  let userScrollUntil = 0, lastScrollT = 0;
+  let ourScrollTop = -1; // any scroll we did not cause (wheel, touch, scrollbar, keys) pauses auto-scroll for a few seconds
+  el.scoreWrap.addEventListener('scroll', () => {
+    if (Math.abs(el.scoreWrap.scrollTop - ourScrollTop) > 3) userScrollUntil = performance.now() + 4000;
+  }, { passive: true });
+
 
   // ---------- opening a song ----------
   let mode = 'none';            // 'audio' | 'synth' | 'none'
@@ -212,13 +318,20 @@
     el.offset.value = s.offset != null ? s.offset : 0;
     el.offsetWrap.hidden = !(s.audio && hasTab);
     el.scrollWrap.hidden = !(hasPages && !hasTab);
+    if (hasPages && !hasTab) loadMarks(s);
+    el.marksWrap.hidden = !(hasPages && !hasTab && s.audio);
+    el.attachAudioWrap.hidden = !!s.audio || !!s.demo;
+    el.attachAudioWrap.classList.toggle('attention', !s.audio && hasPages);
+    el.attachNotesWrap.hidden = hasTab || hasPages;
+    el.band.hidden = true; el.markLayer.innerHTML = '';
+    setMarking(false);
     el.trackWrap.hidden = true;
     updateMode();
 
     // notation
     el.alpha.style.display = hasTab ? '' : 'none';
     el.pages.innerHTML = '';
-    el.scoreWrap.scrollTop = 0;
+    el.scoreWrap.scrollTop = 0; ourScrollTop = 0; userScrollUntil = 0;
     if (hasTab) {
       el.loading.hidden = false;
       const a = ensureApi();
@@ -312,13 +425,30 @@
     }
   }
 
-  function autoScrollPages(t, d) {
-    if (!el.autoScroll.checked || !d || el.audio.paused || !el.pages.children.length) return;
+  function autoScrollPages(t, d, now) {
+    if (!el.pages.children.length) return;
+    const pos = markPos(t, d);
+    if (pos) {
+      el.band.hidden = false;
+      el.band.style.top = (pos.y - 4) + 'px'; el.band.style.height = (pos.h + 4) + 'px';
+      el.band.style.left = pos.x + 'px'; el.band.style.width = pos.w + 'px';
+      el.sweep.style.left = (pos.w * (0.04 + 0.93 * pos.p)) + 'px';
+    } else el.band.hidden = true;
+    const seeked = Math.abs(t - lastScrollT) > 1.5; lastScrollT = t;
+    if (!el.autoScroll.checked || now < userScrollUntil || (el.audio.paused && !seeked)) return;
     const max = el.scoreWrap.scrollHeight - el.scoreWrap.clientHeight;
     if (max <= 0) return;
-    // keep a little lead so the upcoming lines are visible
-    const target = Math.min(max, Math.max(0, (t / d) * (el.scoreWrap.scrollHeight) - el.scoreWrap.clientHeight * 0.35));
-    el.scoreWrap.scrollTop += (target - el.scoreWrap.scrollTop) * 0.08;
+    let target;
+    if (pos) target = pos.y - el.scoreWrap.clientHeight * 0.3;          // follow the marked line
+    else if (current.marks && current.marks.length) {
+      if (t < current.marks[0].t) target = fToY(current.marks[0].f).y - el.scoreWrap.clientHeight * 0.3; // intro: wait at first line
+      else return;
+    } else if (d) target = (t / d) * el.scoreWrap.scrollHeight - el.scoreWrap.clientHeight * 0.35; // no marks: even scroll
+    else return;
+    target = Math.min(max, Math.max(0, target));
+    const diff = target - el.scoreWrap.scrollTop;
+    el.scoreWrap.scrollTop += (seeked || Math.abs(diff) > el.scoreWrap.clientHeight) ? diff : diff * 0.1; // jump on big moves (repeats / seeking)
+    ourScrollTop = el.scoreWrap.scrollTop;
   }
 
   function tick(now) {
@@ -327,7 +457,7 @@
       if (loopA != null && loopB != null && t >= loopB) el.audio.currentTime = loopA;
       updateTimeUI(t, d);
       if (current.tab || current.demo) syncTabToAudio(now);
-      else autoScrollPages(t, d);
+      else autoScrollPages(t, d, now);
     }
     requestAnimationFrame(tick);
   }
@@ -367,6 +497,18 @@
   el.fileInput.addEventListener('change', (e) => { addFiles(e.target.files); e.target.value = ''; });
   el.folderInput.addEventListener('change', (e) => { addFiles(e.target.files); e.target.value = ''; });
   el.filter.addEventListener('input', renderList);
+  el.attachAudio.addEventListener('change', (e) => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f || !current) return;
+    current.audio = f; openSong(current);
+  });
+  el.attachNotes.addEventListener('change', (e) => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f || !current) return;
+    const k = kindOf(f.name);
+    if (k === 'image') current.images.push(f); else if (k === 'tab' || k === 'pdf') current[k] = f; else return alert('סוג קובץ לא נתמך');
+    openSong(current);
+  });
   el.menuBtn.onclick = () => el.sidebar.classList.toggle('open');
 
   ['dragenter', 'dragover'].forEach((t) => document.addEventListener(t, (e) => { e.preventDefault(); el.dropZone.classList.add('over'); }));
