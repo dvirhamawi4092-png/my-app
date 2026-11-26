@@ -182,7 +182,8 @@
   let turn = 0;
   let busy = false;
   let over = false;
-  let gameId = 0;    // invalidates pending async work after restart
+  let gameId = 0;    // invalidates pending async work after restart / undo
+  let history = [];  // snapshots taken before each human move: {pits, turn}
   const aiPlayer = 1;
 
   const names = () => settings.mode === "ai" ? ["אתה", "המחשב"] : ["שחקן אדום", "שחקן כחול"];
@@ -209,6 +210,7 @@
     turn = settings.mode === "ai" ? parseInt(settings.first, 10) : 0;
     busy = false;
     over = false;
+    history = [];
     $("overlay").hidden = true;
     pitEls.forEach((el) => el.classList.remove("last", "capture"));
     const n = names();
@@ -284,11 +286,32 @@
     $("tag-1").querySelector(".score").textContent = pits[13].length;
     $("tag-0").classList.toggle("active", !over && turn === 0);
     $("tag-1").classList.toggle("active", !over && turn === 1);
+    $("undo-btn").disabled = history.length === 0 || busy;
+  }
+
+  // Undo: return to the position before the last human move.
+  // Against the computer this also takes back the computer's replies.
+  function undo() {
+    if (busy || history.length === 0) return;
+    const snap = history.pop();
+    gameId++; // cancel any pending status message / AI move
+    pits = snap.pits.map((p) => p.slice());
+    turn = snap.turn;
+    over = false;
+    busy = false;
+    $("overlay").hidden = true;
+    pitEls.forEach((el) => el.classList.remove("last", "capture"));
+    layout();
+    updateUI();
+    setStatus(`<span class="flash">המהלך בוטל ↶</span>`);
+    const myGame = gameId;
+    setTimeout(() => { if (myGame === gameId && !busy) setStatus(turnText()); }, 900);
   }
 
   function onPitClick(i) {
     if (busy || over || isAiTurn()) return;
     if (!ownsPit(turn, i) || pits[i].length === 0) return;
+    history.push({ pits: pits.map((p) => p.slice()), turn });
     playMove(i);
   }
 
@@ -427,6 +450,7 @@
     requestAnimationFrame(newGame);
   });
   $("restart-btn").addEventListener("click", newGame);
+  $("undo-btn").addEventListener("click", undo);
   $("again-btn").addEventListener("click", newGame);
   $("menu-btn").addEventListener("click", () => { gameId++; $("overlay").hidden = true; showScreen("menu"); });
   $("to-menu-btn").addEventListener("click", () => { gameId++; $("overlay").hidden = true; showScreen("menu"); });
