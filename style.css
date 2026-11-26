@@ -149,3 +149,22 @@ button {
 }
 
 .link-btn:hover { color: #e12d39; }
+
+.apps-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 0 0 20px;
+}
+
+.app-link {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #1f2933;
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.app-link:hover { background: #3b82f6; }
