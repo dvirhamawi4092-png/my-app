@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111318">
+  <title>נגן שירים ותווים</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button id="menuBtn" class="icon-btn only-mobile" aria-label="רשימת שירים">☰</button>
+    <h1>🎸 נגן שירים ותווים</h1>
+    <span id="songTitle" class="song-title"></span>
+  </header>
+
+  <div class="layout">
+    <aside id="sidebar" class="sidebar">
+      <div id="dropZone" class="drop-zone">
+        <p><strong>גררו לכאן קבצים</strong><br>או בחרו:</p>
+        <div class="pick-row">
+          <label class="btn">קבצים<input id="fileInput" type="file" multiple hidden
+            accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac,.aac,.gp,.gp3,.gp4,.gp5,.gpx,.musicxml,.xml,.mxl,.pdf,image/*"></label>
+          <label class="btn">תיקייה<input id="folderInput" type="file" webkitdirectory multiple hidden></label>
+        </div>
+        <p class="hint">קבצים עם אותו שם (למשל <code>Tom Sawyer.mp3</code> + <code>Tom Sawyer.gp5</code>) מתחברים לשיר אחד.</p>
+        <button id="demoBtn" class="btn ghost">נסו דוגמה</button>
+      </div>
+      <input id="filter" class="filter" type="search" placeholder="חיפוש שיר…">
+      <ul id="songList" class="song-list"></ul>
+    </aside>
+
+    <main class="main">
+      <div id="empty" class="empty">
+        <p>הוסיפו שירים מהצד: קובץ שמע (mp3 וכו׳) ו/או קובץ תווים.</p>
+        <ul>
+          <li><b>Guitar Pro / MusicXML</b>: תווים וטאבים שמתנגנים עם סמן שזז לפי הנגינה</li>
+          <li><b>PDF / תמונה</b>: דף התווים נגלל לבד יחד עם השיר</li>
+        </ul>
+      </div>
+
+      <section id="view" class="view" hidden>
+        <div class="toolbar">
+          <label id="modeWrap" class="field" hidden>מקור צליל
+            <select id="modeSel">
+              <option value="audio">הקלטה מקורית</option>
+              <option value="synth">סינתיסייזר מהתווים</option>
+            </select>
+          </label>
+          <label id="trackWrap" class="field" hidden>כלי
+            <select id="trackSel"></select>
+          </label>
+          <label id="offsetWrap" class="field" hidden title="כמה שניות של הקלטה לפני התו הראשון">
+            סנכרון <input id="offset" type="number" step="0.1" value="0"> שנ׳
+          </label>
+          <label id="scrollWrap" class="field" hidden>
+            <input id="autoScroll" type="checkbox" checked> גלילה אוטומטית
+          </label>
+          <label id="metroWrap" class="field" hidden>
+            <input id="metro" type="checkbox"> מטרונום
+          </label>
+          <label id="zoomWrap" class="field">גודל
+            <input id="zoom" type="range" min="0.5" max="1.6" step="0.1" value="1">
+          </label>
+        </div>
+
+        <div id="scoreWrap" class="score-wrap">
+          <div id="alphaTab" class="alpha"></div>
+          <div id="pages" class="pages"></div>
+          <div id="loading" class="loading" hidden>טוען…</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer id="transport" class="transport" hidden>
+    <button id="playBtn" class="play" aria-label="נגן">▶</button>
+    <span id="curTime" class="time">0:00</span>
+    <input id="seek" class="seek" type="range" min="0" max="1000" value="0" aria-label="מיקום">
+    <span id="durTime" class="time">0:00</span>
+    <div class="t-group">
+      <label class="small">מהירות <span id="speedVal">100%</span>
+        <input id="speed" type="range" min="0.5" max="1.25" step="0.05" value="1">
+      </label>
+      <label class="small">עוצמה
+        <input id="volume" type="range" min="0" max="1" step="0.05" value="1">
+      </label>
+      <div class="ab">
+        <button id="aBtn" class="mini" title="תחילת לופ">A</button>
+        <button id="bBtn" class="mini" title="סוף לופ">B</button>
+        <button id="abClear" class="mini" title="בטל לופ">✕</button>
+      </div>
+    </div>
+  </footer>
+
+  <audio id="audio" preload="auto"></audio>
+
+  <script src="vendor/pdf.min.js"></script>
+  <script src="vendor/alphaTab.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
